@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -20,6 +20,8 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  Avatar,
+  Stack,
 } from '@mui/material';
 import {
   SmartToy as AgentIcon,
@@ -29,10 +31,12 @@ import {
   Event as EventIcon,
   AccessTime as TimeIcon,
   HelpOutline as HelpIcon,
+  WbSunny as MorningIcon,
+  NightsStay as AfternoonIcon,
+  CalendarMonth as CalendarIcon,
 } from '@mui/icons-material';
 import { patientAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import AgentWorkflowStepper from '../components/AgentWorkflowStepper';
 import Sidebar from '../components/Sidebar';
 import DoctorCard from '../components/DoctorCard';
 
@@ -47,11 +51,15 @@ export default function SymptomConsultationPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
-  // Booking confirmation modal state for manual slot selection
+  // Interactive Doctor & Date/Time Slot Picker state
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [doctorSlots, setDoctorSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
+  const [bookingError, setBookingError] = useState('');
 
   useEffect(() => {
     // If navigated from landing page with initial symptom, auto analyze
@@ -88,45 +96,109 @@ export default function SymptomConsultationPage() {
     }
   };
 
+  const handleOpenSchedule = async (doctor, defaultSlot = null) => {
+    setSelectedDoctor(doctor);
+    setSelectedSlot(defaultSlot);
+    setSelectedDate(defaultSlot ? defaultSlot.date : '');
+    setBookingError('');
+    setSlotsLoading(true);
+
+    try {
+      const res = await patientAPI.getDoctorSlots(doctor.id, 14);
+      const slots = res.data?.slots || [];
+      setDoctorSlots(slots);
+      if (slots.length > 0) {
+        if (defaultSlot) {
+          const matched = slots.find((s) => s.date === defaultSlot.date && s.start_time === defaultSlot.start_time);
+          setSelectedSlot(matched || slots[0]);
+          setSelectedDate(matched ? matched.date : slots[0].date);
+        } else {
+          setSelectedDate(slots[0].date);
+          setSelectedSlot(slots[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load doctor slots', err);
+      setBookingError('Failed to fetch doctor live schedule.');
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  // Group slots by date
+  const slotsByDate = useMemo(() => {
+    const grouped = {};
+    doctorSlots.forEach((slot) => {
+      if (!grouped[slot.date]) {
+        grouped[slot.date] = [];
+      }
+      grouped[slot.date].push(slot);
+    });
+    return grouped;
+  }, [doctorSlots]);
+
+  const uniqueDates = useMemo(() => Object.keys(slotsByDate).sort(), [slotsByDate]);
+
+  const currentDaySlots = useMemo(() => {
+    return slotsByDate[selectedDate] || [];
+  }, [slotsByDate, selectedDate]);
+
+  const morningSlots = useMemo(() => {
+    return currentDaySlots.filter((s) => s.start_time < '13:00');
+  }, [currentDaySlots]);
+
+  const afternoonSlots = useMemo(() => {
+    return currentDaySlots.filter((s) => s.start_time >= '13:00');
+  }, [currentDaySlots]);
+
   const handleManualBooking = async () => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
-    if (!selectedDoctor || !selectedSlot) return;
+    if (!selectedDoctor || !selectedSlot) {
+      setBookingError('Please choose a date and time slot first.');
+      return;
+    }
 
     setBookingLoading(true);
+    setBookingError('');
     try {
       const res = await patientAPI.bookAppointment({
         doctor_id: selectedDoctor.id,
         appointment_date: selectedSlot.date,
         start_time: selectedSlot.start_time,
-        chief_complaint: symptoms,
+        end_time: selectedSlot.end_time,
+        chief_complaint: symptoms || 'Clinical Consultation',
         booking_source: 'manual',
       });
 
       if (res.data.success) {
-        setBookingSuccess(res.data.appointment);
+        setBookingSuccess({
+          appointment: res.data.appointment,
+          doctor: selectedDoctor,
+          slot: selectedSlot,
+        });
         setSelectedDoctor(null);
         setSelectedSlot(null);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Booking slot conflict.');
+      setBookingError(err.response?.data?.error || 'Booking slot conflict. Please choose another slot.');
     } finally {
       setBookingLoading(false);
     }
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
       <Sidebar />
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: { xs: 2, md: 4 },
-          minHeight: '100vh',
+          minHeight: 'calc(100vh - 64px)',
           bgcolor: 'background.default',
           overflowX: 'hidden',
         }}
@@ -249,6 +321,36 @@ export default function SymptomConsultationPage() {
         </Box>
       )}
 
+      {/* Booking Success Banner */}
+      {bookingSuccess && (
+        <Alert
+          severity="success"
+          sx={{ my: 3, borderRadius: 3, p: 2.5, boxShadow: '0 4px 20px rgba(16, 185, 129, 0.2)' }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              variant="outlined"
+              onClick={() => navigate('/history')}
+              sx={{ fontWeight: 700 }}
+            >
+              View In History
+            </Button>
+          }
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            🎉 Appointment Successfully Confirmed!
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Appointment #{bookingSuccess.appointment?.id} with <strong>{bookingSuccess.doctor?.full_name}</strong> on{' '}
+            <strong>
+              {bookingSuccess.slot?.day_name}, {bookingSuccess.slot?.date} ({bookingSuccess.slot?.start_time} - {bookingSuccess.slot?.end_time})
+            </strong>{' '}
+            in Room {bookingSuccess.doctor?.room_number || '301'}. A confirmation email has been dispatched.
+          </Typography>
+        </Alert>
+      )}
+
       {result && (
         <Box sx={{ mt: 4 }}>
           {/* Top Recommendation Highlight Card */}
@@ -319,7 +421,7 @@ export default function SymptomConsultationPage() {
                     {result.recommendation.slot ? (
                       <Box sx={{ mb: 2 }}>
                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
-                          RECOMMENDED SLOT:
+                          EARLIEST RECOMMENDED OPENING:
                         </Typography>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.dark' }}>
                           {result.recommendation.slot.date}
@@ -330,7 +432,7 @@ export default function SymptomConsultationPage() {
                       </Box>
                     ) : (
                       <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                        Flexible schedule - contact reception
+                        Flexible schedule available
                       </Typography>
                     )}
 
@@ -350,12 +452,11 @@ export default function SymptomConsultationPage() {
                         color="primary"
                         size="large"
                         onClick={() => {
-                          setSelectedDoctor(result.recommendation.doctor);
-                          setSelectedSlot(result.recommendation.slot);
+                          handleOpenSchedule(result.recommendation.doctor, result.recommendation.slot);
                         }}
                         sx={{ fontWeight: 800, px: 3, py: 1.2 }}
                       >
-                        Confirm This Booking
+                        Select & Choose Time Slot ➜
                       </Button>
                     )}
                   </Grid>
@@ -364,79 +465,275 @@ export default function SymptomConsultationPage() {
             </Card>
           )}
 
-          {/* Stepper Multi-Agent Workflow Pipeline */}
-          <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 4 }}>
-            <AgentWorkflowStepper workflowTrace={result.workflow_trace} />
-          </Paper>
-
-          {/* Alternative Matched Doctors */}
-          {result.candidate_doctors && result.candidate_doctors.length > 1 && (
+          {/* Multiple Matched Doctors Section */}
+          {result.candidate_doctors && result.candidate_doctors.length > 0 && (
             <Box sx={{ mt: 5 }}>
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
-                Other Qualified Specialists in {result.analysis?.primary_specialization}
-              </Typography>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  Choose Your Preferred Specialist
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                  Select any doctor below to view their calendar and choose the day & time you are free.
+                </Typography>
+              </Box>
+
               <Grid container spacing={3}>
-                {result.candidate_doctors.slice(1).map((doc) => (
-                  <Grid item xs={12} sm={6} md={4} key={doc.id}>
-                    <DoctorCard
-                      doctor={doc}
-                      onSelectDoctor={(d) => {
-                        setSelectedDoctor(d);
-                        // Fetch first available slot for manual modal
-                        patientAPI.getDoctorSlots(d.id).then((slotRes) => {
-                          if (slotRes.data.slots && slotRes.data.slots.length > 0) {
-                            setSelectedSlot(slotRes.data.slots[0]);
-                          }
-                        });
-                      }}
-                    />
-                  </Grid>
-                ))}
+                {result.candidate_doctors.map((doc) => {
+                  const isTop = result.recommendation?.doctor?.id === doc.id;
+                  return (
+                    <Grid item xs={12} sm={6} md={4} key={doc.id}>
+                      <DoctorCard
+                        doctor={doc}
+                        isRecommended={isTop}
+                        earliestSlot={isTop ? result.recommendation?.slot : null}
+                        onSelectDoctor={(d) => handleOpenSchedule(d, isTop ? result.recommendation?.slot : null)}
+                      />
+                    </Grid>
+                  );
+                })}
               </Grid>
             </Box>
           )}
         </Box>
       )}
 
-      {/* Manual Booking Confirmation Dialog */}
+      {/* Interactive Date & Time Slot Picker Dialog */}
       <Dialog
-        open={Boolean(selectedDoctor && selectedSlot)}
+        open={Boolean(selectedDoctor)}
         onClose={() => setSelectedDoctor(null)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          Confirm Doctor Consultation
+        <DialogTitle sx={{ fontWeight: 800, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Choose Appointment Date & Time
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Select a day and time slot that fits your schedule with {selectedDoctor?.full_name}
+            </Typography>
+          </Box>
+          {selectedDoctor && (
+            <Chip
+              label={`Fee: $${selectedDoctor.consultation_fee}`}
+              color="secondary"
+              sx={{ fontWeight: 700 }}
+            />
+          )}
         </DialogTitle>
+
         <DialogContent dividers>
-          {selectedDoctor && selectedSlot && (
-            <Box sx={{ py: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                {selectedDoctor.full_name}
+          {bookingError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {bookingError}
+            </Alert>
+          )}
+
+          {slotsLoading ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <CircularProgress size={40} />
+              <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
+                Fetching doctor's live availability schedule...
               </Typography>
-              <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 600, mb: 2 }}>
-                {selectedDoctor.specialization_name} &bull; Room {selectedDoctor.room_number || '301'}
+            </Box>
+          ) : doctorSlots.length === 0 ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                No open slots found for this doctor in the next 14 days.
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                Please select another specialist or check back later.
+              </Typography>
+            </Box>
+          ) : (
+            <Box>
+              {/* Doctor Details Summary Bar */}
+              <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 2, border: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48, fontWeight: 700 }}>
+                  {selectedDoctor?.full_name ? selectedDoctor.full_name.replace('Dr. ', '')[0] : 'D'}
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                    {selectedDoctor?.full_name}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 600 }}>
+                    {selectedDoctor?.specialization_name} &bull; {selectedDoctor?.qualification}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                    Clinic Suite: {selectedDoctor?.room_number || 'Room 301'} &bull; Rating: ⭐ {selectedDoctor?.rating} ({selectedDoctor?.experience_years} yrs exp)
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* STEP 1: Select Day / Date */}
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <EventIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                1. SELECT DAY / DATE (WHEN ARE YOU FREE?):
               </Typography>
 
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 2 }}>
-                <Typography variant="body2">
-                  <strong>Date:</strong> {selectedSlot.date} ({selectedSlot.day_name || 'Upcoming'})
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  <strong>Time:</strong> {selectedSlot.start_time} - {selectedSlot.end_time}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  <strong>Consultation Fee:</strong> ${selectedDoctor.consultation_fee}
-                </Typography>
-              </Paper>
+              <Box sx={{ display: 'flex', gap: 1.5, overflowX: 'auto', pb: 1.5, mb: 3 }}>
+                {uniqueDates.map((dateStr) => {
+                  const isSelected = selectedDate === dateStr;
+                  const dateObj = new Date(dateStr + 'T00:00:00');
+                  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                  const monthDay = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  const count = slotsByDate[dateStr]?.length || 0;
 
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Note: An automated confirmation email and pre-appointment reminder will be dispatched by our Notification Agent upon confirmation.
+                  return (
+                    <Paper
+                      key={dateStr}
+                      onClick={() => {
+                        setSelectedDate(dateStr);
+                        if (slotsByDate[dateStr]?.length > 0) {
+                          setSelectedSlot(slotsByDate[dateStr][0]);
+                        }
+                      }}
+                      sx={{
+                        p: 1.5,
+                        minWidth: 105,
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        borderRadius: 2,
+                        border: 2,
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: isSelected ? 'rgba(14, 165, 233, 0.12)' : 'background.paper',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          transform: 'translateY(-2px)',
+                        },
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: isSelected ? 'primary.main' : 'text.secondary', display: 'block' }}>
+                        {dayName.toUpperCase()}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 800, color: isSelected ? 'primary.main' : 'text.primary' }}>
+                        {monthDay}
+                      </Typography>
+                      <Chip
+                        label={`${count} slots`}
+                        size="small"
+                        color={isSelected ? 'primary' : 'default'}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        sx={{ mt: 0.5, height: 18, fontSize: '0.65rem', fontWeight: 600 }}
+                      />
+                    </Paper>
+                  );
+                })}
+              </Box>
+
+              {/* STEP 2: Select Time Slot */}
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TimeIcon fontSize="small" sx={{ color: 'secondary.main' }} />
+                2. SELECT TIME SLOT FOR {selectedDate}:
               </Typography>
+
+              {morningSlots.length > 0 && (
+                <Box sx={{ mb: 2.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                    <MorningIcon fontSize="inherit" sx={{ color: '#F59E0B' }} /> MORNING (09:00 - 13:00)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {morningSlots.map((slot, idx) => {
+                      const isChosen = selectedSlot?.slot_datetime === slot.slot_datetime;
+                      return (
+                        <Chip
+                          key={`m-${idx}`}
+                          label={`${slot.start_time} - ${slot.end_time}`}
+                          color={isChosen ? 'primary' : 'default'}
+                          variant={isChosen ? 'filled' : 'outlined'}
+                          onClick={() => setSelectedSlot(slot)}
+                          clickable
+                          sx={{
+                            fontWeight: 700,
+                            py: 2,
+                            px: 1,
+                            fontSize: '0.85rem',
+                            borderColor: isChosen ? 'primary.main' : 'divider',
+                          }}
+                        />
+                      );
+                    })}
+                  </Box>
+                </Box>
+              )}
+
+              {afternoonSlots.length > 0 && (
+                <Box sx={{ mb: 2.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                    <AfternoonIcon fontSize="inherit" sx={{ color: '#0EA5E9' }} /> AFTERNOON / EVENING (14:00 - 17:00)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {afternoonSlots.map((slot, idx) => {
+                      const isChosen = selectedSlot?.slot_datetime === slot.slot_datetime;
+                      return (
+                        <Chip
+                          key={`a-${idx}`}
+                          label={`${slot.start_time} - ${slot.end_time}`}
+                          color={isChosen ? 'primary' : 'default'}
+                          variant={isChosen ? 'filled' : 'outlined'}
+                          onClick={() => setSelectedSlot(slot)}
+                          clickable
+                          sx={{
+                            fontWeight: 700,
+                            py: 2,
+                            px: 1,
+                            fontSize: '0.85rem',
+                            borderColor: isChosen ? 'primary.main' : 'divider',
+                          }}
+                        />
+                      );
+                    })}
+                  </Box>
+                </Box>
+              )}
+
+              {/* STEP 3: Summary Box */}
+              {selectedSlot && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 3, borderRadius: 2, bgcolor: 'background.default', border: '1px solid #0EA5E9' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
+                    ✅ Selected Appointment Summary:
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2">
+                        <strong>Doctor:</strong> {selectedDoctor?.full_name} ({selectedDoctor?.specialization_name})
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2">
+                        <strong>Clinic Room:</strong> {selectedDoctor?.room_number || 'Room 301'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2">
+                        <strong>Date:</strong> {selectedSlot.day_name}, {selectedSlot.date}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2">
+                        <strong>Time:</strong> {selectedSlot.start_time} - {selectedSlot.end_time}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Consultation fee (${selectedDoctor?.consultation_fee}) payable at reception upon arrival.
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+
+        <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
           <Button onClick={() => setSelectedDoctor(null)} color="inherit">
             Cancel
           </Button>
@@ -444,13 +741,14 @@ export default function SymptomConsultationPage() {
             onClick={handleManualBooking}
             variant="contained"
             color="primary"
-            disabled={bookingLoading}
-            sx={{ fontWeight: 700 }}
+            disabled={!selectedSlot || bookingLoading}
+            startIcon={bookingLoading ? <CircularProgress size={18} color="inherit" /> : <SuccessIcon />}
+            sx={{ fontWeight: 800, px: 3, py: 1 }}
           >
             {bookingLoading ? 'Confirming...' : 'Confirm Appointment'}
           </Button>
-          </DialogActions>
-        </Dialog>
+        </DialogActions>
+      </Dialog>
       </Container>
     </Box>
   </Box>

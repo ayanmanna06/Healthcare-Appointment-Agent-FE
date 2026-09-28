@@ -148,7 +148,7 @@ export default function DoctorCard({ doctor, onSelectDoctor, earliestSlot, isRec
           onClick={() => onSelectDoctor && onSelectDoctor(doctor)}
           sx={{ fontWeight: 700 }}
         >
-          {isAuthenticated ? 'Book Appointment' : 'Sign In to Book'}
+          {isAuthenticated ? 'Select & Choose Slot' : 'Sign In to Book'}
         </Button>
       </Box>
     </Card>

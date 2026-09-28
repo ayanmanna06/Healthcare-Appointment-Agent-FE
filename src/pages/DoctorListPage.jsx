@@ -355,14 +355,14 @@ export default function DoctorListPage() {
 
   if (isAuthenticated) {
     return (
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
         <Sidebar />
         <Box
           component="main"
           sx={{
             flexGrow: 1,
             p: { xs: 2, md: 4 },
-            minHeight: '100vh',
+            minHeight: 'calc(100vh - 64px)',
             bgcolor: 'background.default',
             overflowX: 'hidden',
           }}

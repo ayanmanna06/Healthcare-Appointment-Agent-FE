@@ -90,6 +90,23 @@ export const CustomThemeProvider = ({ children }) => {
               },
             },
           },
+          MuiInputLabel: {
+            defaultProps: {
+              shrink: true,
+            },
+          },
+          MuiOutlinedInput: {
+            styleOverrides: {
+              root: {
+                '& input:-webkit-autofill': {
+                  WebkitBoxShadow: `0 0 0 1000px ${mode === 'light' ? '#FFFFFF' : '#1E293B'} inset !important`,
+                  WebkitTextFillColor: `${mode === 'light' ? '#0F172A' : '#F8FAFC'} !important`,
+                  caretColor: mode === 'light' ? '#0F172A' : '#F8FAFC',
+                  transition: 'background-color 5000s ease-in-out 0s',
+                },
+              },
+            },
+          },
         },
       }),
     [mode]

@@ -167,7 +167,19 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
           display: { xs: 'none', md: 'block' },
           width: DRAWER_WIDTH,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH, borderRight: 1, borderColor: 'divider', position: 'relative', height: 'calc(100vh - 64px)' },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: DRAWER_WIDTH,
+            borderRight: 1,
+            borderColor: 'divider',
+            position: 'fixed',
+            top: 64,
+            left: 0,
+            bottom: 0,
+            height: 'calc(100vh - 64px)',
+            zIndex: (theme) => theme.zIndex.drawer,
+            overflowY: 'auto',
+          },
         }}
         open
       >

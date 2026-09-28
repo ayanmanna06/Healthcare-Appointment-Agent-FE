@@ -19,7 +19,7 @@ export default function App() {
     <BrowserRouter>
       <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
         <Navbar />
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ pt: '64px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<LandingPage />} />

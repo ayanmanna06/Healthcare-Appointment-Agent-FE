@@ -11,6 +11,8 @@ import {
   Divider,
   Stack,
   Chip,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
 import {
   LockOutlined as LockIcon,
@@ -18,6 +20,8 @@ import {
   Person as PersonIcon,
   LocalHospital as DoctorIcon,
   AdminPanelSettings as AdminIcon,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +31,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +46,8 @@ export default function LoginPage() {
       else if (user.role === 'doctor') navigate('/doctor');
       else navigate('/patient');
     } catch (err) {
-      setError(err.message || 'Login failed. Please check credentials.');
+      const msg = err.response?.data?.error || err.message || 'Login failed. Please check credentials.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -145,16 +151,32 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             margin="normal"
             autoComplete="email"
+            InputLabelProps={{ shrink: true }}
           />
           <TextField
             fullWidth
             required
             label="Password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             margin="normal"
             autoComplete="current-password"
+            InputLabelProps={{ shrink: true }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
           <Button

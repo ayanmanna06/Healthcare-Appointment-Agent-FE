@@ -16,8 +16,14 @@ import {
   FormControl,
   FormLabel,
   MenuItem,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
-import { HowToReg as RegisterIcon } from '@mui/icons-material';
+import {
+  HowToReg as RegisterIcon,
+  Visibility,
+  VisibilityOff,
+} from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
@@ -25,6 +31,7 @@ export default function RegisterPage() {
   const { register } = useAuth();
 
   const [role, setRole] = useState('patient');
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -159,11 +166,25 @@ export default function RegisterPage() {
               <TextField
                 fullWidth
                 required
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 label="Password (min 6 chars)"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>

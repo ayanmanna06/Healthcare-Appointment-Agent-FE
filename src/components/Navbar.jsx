@@ -48,8 +48,22 @@ export default function Navbar() {
   };
 
   return (
-    <AppBar position="sticky" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 64,
+        zIndex: (theme) => theme.zIndex.drawer + 2,
+        borderBottom: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+      }}
+    >
+      <Toolbar sx={{ height: 64, justifyContent: 'space-between' }}>
         {/* Brand Logo */}
         <Box
           sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
