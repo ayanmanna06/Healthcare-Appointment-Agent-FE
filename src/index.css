@@ -103,3 +103,22 @@ input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   transition: background-color 50000s ease-in-out 0s;
 }
+
+/* Global Fix: Prevent outline border from cutting through TextField and Select labels */
+.MuiInputLabel-root.MuiInputLabel-shrink,
+.MuiInputLabel-outlined.MuiInputLabel-shrink {
+  background-color: #1E293B !important;
+  padding: 0 6px !important;
+  border-radius: 4px !important;
+  z-index: 2 !important;
+  width: fit-content !important;
+  max-width: calc(100% - 24px) !important;
+}
+
+/* For light mode contexts */
+.light .MuiInputLabel-root.MuiInputLabel-shrink,
+.light .MuiInputLabel-outlined.MuiInputLabel-shrink,
+[data-theme='light'] .MuiInputLabel-root.MuiInputLabel-shrink,
+[data-theme='light'] .MuiInputLabel-outlined.MuiInputLabel-shrink {
+  background-color: #FFFFFF !important;
+}

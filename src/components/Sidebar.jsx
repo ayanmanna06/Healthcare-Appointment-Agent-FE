@@ -24,6 +24,7 @@ import {
   EventAvailable as AvailabilityIcon,
   Assignment as NotesIcon,
   Person as PersonIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -49,7 +50,7 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
         { label: 'Doctor Dashboard', path: '/doctor', icon: <DashboardIcon /> },
         { label: 'My Appointments', path: '/history', icon: <CalendarIcon /> },
         { label: 'Set Availability', path: '/doctor/availability', icon: <AvailabilityIcon /> },
-        { label: 'Doctor Directory', path: '/doctors', icon: <StethoscopeIcon /> },
+        { label: 'Patient Referrals', path: '/doctors', icon: <SwapHorizIcon /> },
         { label: 'Profile & Clinic', path: '/profile', icon: <PersonIcon /> },
       ];
     }
@@ -64,6 +65,28 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
   };
 
   const menuItems = getMenuItems();
+
+  const isItemActive = (item) => {
+    const current = location.pathname;
+    if (current === item.path) return true;
+    // When doctor is on referral page, highlight Doctor Directory
+    if (item.path === '/doctors' && (current === '/doctors' || current.startsWith('/doctor/refer'))) {
+      return true;
+    }
+    // When on doctor availability
+    if (item.path === '/doctor/availability' && current.startsWith('/doctor/availability')) {
+      return true;
+    }
+    // When on history
+    if (item.path === '/history' && current.startsWith('/history')) {
+      return true;
+    }
+    // When on admin
+    if (item.path === '/admin' && current.startsWith('/admin')) {
+      return true;
+    }
+    return false;
+  };
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
@@ -87,9 +110,9 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
       {/* Nav List */}
       <List sx={{ px: 1.5, py: 2, flexGrow: 1 }}>
         {menuItems.map((item) => {
-          const isSelected = location.pathname === item.path;
+          const isSelected = isItemActive(item);
           return (
-            <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
+            <ListItem key={item.label} disablePadding sx={{ mb: 0.8 }}>
               <ListItemButton
                 selected={isSelected}
                 onClick={() => {
@@ -98,23 +121,31 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
                 }}
                 sx={{
                   borderRadius: 2,
-                  py: 1.2,
-                  color: isSelected ? 'primary.main' : 'text.primary',
-                  bgcolor: isSelected ? 'rgba(14, 165, 233, 0.08) !important' : 'transparent',
-                  fontWeight: isSelected ? 700 : 500,
+                  py: 1.3,
+                  px: 2,
+                  color: isSelected ? '#38BDF8 !important' : 'text.primary',
+                  bgcolor: isSelected ? 'rgba(14, 165, 233, 0.16) !important' : 'transparent',
+                  background: isSelected
+                    ? 'linear-gradient(90deg, rgba(14, 165, 233, 0.22) 0%, rgba(14, 165, 233, 0.06) 100%) !important'
+                    : 'transparent',
+                  borderLeft: isSelected ? '4px solid #0EA5E9' : '4px solid transparent',
+                  boxShadow: isSelected ? '0 2px 10px rgba(14, 165, 233, 0.2)' : 'none',
+                  fontWeight: isSelected ? 800 : 500,
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    bgcolor: 'rgba(14, 165, 233, 0.05)',
+                    bgcolor: isSelected ? 'rgba(14, 165, 233, 0.22) !important' : 'rgba(14, 165, 233, 0.06)',
                   },
                 }}
               >
-                <ListItemIcon sx={{ color: isSelected ? 'primary.main' : 'text.secondary', minWidth: 40 }}>
+                <ListItemIcon sx={{ color: isSelected ? '#0EA5E9' : 'text.secondary', minWidth: 38 }}>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}
                   primaryTypographyProps={{
-                    fontSize: '0.9rem',
-                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: '0.92rem',
+                    fontWeight: isSelected ? 800 : 500,
+                    color: isSelected ? '#38BDF8' : 'text.primary',
                   }}
                 />
                 {item.badge && (

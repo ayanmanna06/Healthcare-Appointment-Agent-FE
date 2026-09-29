@@ -10,6 +10,8 @@ import SymptomConsultationPage from './pages/SymptomConsultationPage';
 import DoctorListPage from './pages/DoctorListPage';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
+import DoctorAvailabilityPage from './pages/DoctorAvailabilityPage';
+import DoctorReferralPage from './pages/DoctorReferralPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AppointmentHistoryPage from './pages/AppointmentHistoryPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
@@ -41,7 +43,9 @@ export default function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}>
               <Route path="/doctor" element={<DoctorDashboard />} />
-              <Route path="/doctor/availability" element={<DoctorDashboard />} />
+              <Route path="/doctor/availability" element={<DoctorAvailabilityPage />} />
+              <Route path="/doctor/refer-patient" element={<DoctorReferralPage />} />
+              <Route path="/doctor/refer/:doctorId" element={<DoctorReferralPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>

@@ -91,8 +91,16 @@ export const CustomThemeProvider = ({ children }) => {
             },
           },
           MuiInputLabel: {
-            defaultProps: {
-              shrink: true,
+            styleOverrides: {
+              root: {
+                '&.MuiInputLabel-shrink': {
+                  backgroundColor: mode === 'light' ? '#FFFFFF' : '#1E293B',
+                  padding: '0 6px',
+                  borderRadius: '4px',
+                  zIndex: 2,
+                  maxWidth: 'calc(100% - 24px)',
+                },
+              },
             },
           },
           MuiOutlinedInput: {
@@ -104,6 +112,9 @@ export const CustomThemeProvider = ({ children }) => {
                   caretColor: mode === 'light' ? '#0F172A' : '#F8FAFC',
                   transition: 'background-color 5000s ease-in-out 0s',
                 },
+              },
+              notchedOutline: {
+                borderColor: mode === 'light' ? '#CBD5E1' : '#334155',
               },
             },
           },

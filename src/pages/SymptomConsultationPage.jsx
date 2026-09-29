@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -39,6 +39,7 @@ import { patientAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import DoctorCard from '../components/DoctorCard';
+import { PRESET_SYMPTOM_PROMPTS } from '../prompts/symptomPrompts';
 
 export default function SymptomConsultationPage() {
   const location = useLocation();
@@ -61,6 +62,10 @@ export default function SymptomConsultationPage() {
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [bookingError, setBookingError] = useState('');
 
+  // Active featured doctor in the big card (defaults to 1st candidate / top recommendation)
+  const [featuredDoctorId, setFeaturedDoctorId] = useState(null);
+  const bigCardRef = useRef(null);
+
   useEffect(() => {
     // If navigated from landing page with initial symptom, auto analyze
     if (location.state?.initialSymptom && !result) {
@@ -77,6 +82,7 @@ export default function SymptomConsultationPage() {
     setError('');
     setLoading(true);
     setResult(null);
+    setFeaturedDoctorId(null);
 
     try {
       const res = await patientAPI.consultSymptoms({
@@ -93,6 +99,50 @@ export default function SymptomConsultationPage() {
       setError(err.response?.data?.error || err.message || 'Error communicating with AI agents.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Derive the active featured doctor to display in the big card
+  const featuredDoctor = useMemo(() => {
+    if (!result || result.is_medical_query === false) return null;
+    const candidates = result.candidate_doctors || [];
+    if (featuredDoctorId != null) {
+      const found = candidates.find((c) => {
+        const cId = c?.id ?? c?.doctor?.id;
+        return String(cId) === String(featuredDoctorId);
+      });
+      if (found) {
+        return found.doctor ? { ...found.doctor, ...found } : found;
+      }
+    }
+    // Default to the 1st candidate doctor or the AI recommendation
+    if (candidates.length > 0) {
+      const first = candidates[0];
+      return first.doctor ? { ...first.doctor, ...first } : first;
+    }
+    if (result.recommendation?.doctor) {
+      return {
+        ...result.recommendation.doctor,
+        earliest_slot: result.recommendation.slot,
+        decision_score: result.recommendation.decision_score,
+        score_breakdown: result.recommendation.score_breakdown,
+        decision_reason: result.recommendation.decision_reason,
+        is_recommended: true,
+      };
+    }
+    return null;
+  }, [result, featuredDoctorId]);
+
+  const isTopRecommendation = Boolean(
+    result?.recommendation?.doctor?.id && String(featuredDoctor?.id) === String(result.recommendation.doctor.id)
+  );
+
+  const handleSelectFeaturedDoctor = (doctor) => {
+    if (!doctor) return;
+    const id = doctor.id ?? doctor.doctor?.id;
+    setFeaturedDoctorId(id);
+    if (bigCardRef.current) {
+      bigCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   };
 
@@ -285,13 +335,7 @@ export default function SymptomConsultationPage() {
             QUICK PRESETS:
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-            {[
-              'I have fever and headache for 3 days',
-              'Chest pain, shortness of breath, and palpitations',
-              'Sharp pain in my right knee after a sports sprain',
-              'Severe migraine with numbness in left fingers',
-              'Itchy red skin rash and hives on my neck',
-            ].map((preset) => (
+            {PRESET_SYMPTOM_PROMPTS.map((preset) => (
               <Chip
                 key={preset}
                 label={preset}
@@ -353,28 +397,144 @@ export default function SymptomConsultationPage() {
 
       {result && (
         <Box sx={{ mt: 4 }}>
-          {/* Top Recommendation Highlight Card */}
-          {result.recommendation?.doctor && (
+          {/* Conversational AI Response Card for Greetings & Non-Medical Queries */}
+          {result.is_medical_query === false && (
             <Card
               sx={{
                 mb: 4,
                 borderRadius: 3,
                 border: 2,
-                borderColor: 'primary.main',
-                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%)',
-                boxShadow: '0 10px 30px rgba(14, 165, 233, 0.15)',
+                borderColor: result.intent_type === 'greeting' ? 'primary.main' : 'warning.main',
+                background: result.intent_type === 'greeting'
+                  ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%)'
+                  : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(14, 165, 233, 0.08) 100%)',
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2.5 }}>
+                  <Avatar
+                    sx={{
+                      bgcolor: result.intent_type === 'greeting' ? 'primary.main' : 'warning.main',
+                      width: 52,
+                      height: 52,
+                    }}
+                  >
+                    <AgentIcon sx={{ fontSize: 32 }} />
+                  </Avatar>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={result.intent_type === 'greeting' ? "AI ASSISTANT GREETING" : "CLINICAL CONSULTATION NOTICE"}
+                        color={result.intent_type === 'greeting' ? "primary" : "warning"}
+                        size="small"
+                        sx={{ fontWeight: 800 }}
+                      />
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                        Status: Active &bull; Health Triage Ready
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5, color: 'text.primary' }}>
+                      {result.intent_type === 'greeting'
+                        ? "Hello! How can I assist your health today?"
+                        : "Medical Scope Notice"}
+                    </Typography>
+
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        borderRadius: 2.5,
+                        bgcolor: 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      <Typography variant="body1" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                        {result.agent_message}
+                      </Typography>
+                    </Paper>
+
+                    {/* Quick Suggestion Presets */}
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1.2 }}>
+                        CLICK A PROMPT BELOW TO CONSULT FOR COMMON PHYSICAL SYMPTOMS:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {PRESET_SYMPTOM_PROMPTS.map((prompt, idx) => (
+                          <Chip
+                            key={idx}
+                            label={prompt}
+                            variant="outlined"
+                            color="primary"
+                            clickable
+                            onClick={() => {
+                              setSymptoms(prompt);
+                              handleAnalyze(prompt);
+                            }}
+                            sx={{
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              py: 1,
+                              '&:hover': {
+                                bgcolor: 'primary.main',
+                                color: 'primary.contrastText',
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dynamic Featured Specialist Big Card (Defaults to 1st / Top recommendation, changes on doctor click) */}
+          {featuredDoctor && (
+            <Card
+              ref={bigCardRef}
+              sx={{
+                mb: 4,
+                borderRadius: 3,
+                border: 2,
+                borderColor: isTopRecommendation ? 'primary.main' : 'secondary.main',
+                background: isTopRecommendation
+                  ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%)'
+                  : 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(14, 165, 233, 0.08) 100%)',
+                boxShadow: isTopRecommendation
+                  ? '0 10px 30px rgba(14, 165, 233, 0.15)'
+                  : '0 10px 30px rgba(139, 92, 246, 0.18)',
+                transition: 'all 0.3s ease',
               }}
             >
               <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                    <Chip
+                      icon={isTopRecommendation ? <StarsIcon /> : <SuccessIcon />}
+                      label={isTopRecommendation ? "OPTIMAL AI SELECTION" : "SELECTED SPECIALIST"}
+                      color={isTopRecommendation ? "primary" : "secondary"}
+                      sx={{ fontWeight: 800, px: 1 }}
+                    />
+                    {!isTopRecommendation && result.recommendation?.doctor && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => setFeaturedDoctorId(result.recommendation.doctor.id)}
+                        sx={{ fontSize: '0.72rem', py: 0.3, px: 1, borderRadius: 2 }}
+                      >
+                        ↺ Switch back to AI Top Pick ({result.recommendation.doctor.full_name})
+                      </Button>
+                    )}
+                  </Box>
+
                   <Chip
-                    icon={<StarsIcon />}
-                    label="OPTIMAL AI SELECTION"
-                    color="primary"
-                    sx={{ fontWeight: 800, px: 1 }}
-                  />
-                  <Chip
-                    label={`Agent Match Score: ${Math.round(result.recommendation.decision_score * 100)}%`}
+                    label={`Agent Match Score: ${Math.round((featuredDoctor.decision_score || result.recommendation?.decision_score || 0.85) * 100)}%`}
                     color="success"
                     sx={{ fontWeight: 800 }}
                   />
@@ -383,51 +543,58 @@ export default function SymptomConsultationPage() {
                 <Grid container spacing={3} alignItems="center">
                   <Grid item xs={12} md={8}>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      {result.recommendation.doctor.full_name}
+                      {featuredDoctor.full_name}
                     </Typography>
                     <Typography variant="subtitle1" sx={{ color: 'secondary.main', fontWeight: 700, mb: 1 }}>
-                      {result.recommendation.doctor.specialization_name} &bull; {result.recommendation.doctor.qualification}
+                      {featuredDoctor.specialization_name} &bull; {featuredDoctor.qualification}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                      {result.recommendation.decision_reason}
+                      {featuredDoctor.decision_reason || featuredDoctor.bio}
                     </Typography>
 
                     {/* Breakdown Chips */}
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       <Chip
-                        label={`Rating Score: ${Math.round(result.recommendation.score_breakdown?.rating_score * 100)}%`}
+                        label={`Rating Score: ${Math.round(((featuredDoctor.score_breakdown?.rating_score ?? (featuredDoctor.rating / 5.0))) * 100)}%`}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={`Experience Score: ${Math.round(result.recommendation.score_breakdown?.experience_score * 100)}%`}
+                        label={`Experience Score: ${Math.round(((featuredDoctor.score_breakdown?.experience_score ?? (featuredDoctor.experience_years / 25.0))) * 100)}%`}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={`Earliness Score: ${Math.round(result.recommendation.score_breakdown?.earliness_score * 100)}%`}
+                        label={`Earliness Score: ${Math.round(((featuredDoctor.score_breakdown?.earliness_score ?? 0.85)) * 100)}%`}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={`Low Wait Queue: ${Math.round(result.recommendation.score_breakdown?.load_score * 100)}%`}
+                        label={`Low Wait Queue: ${Math.round(((featuredDoctor.score_breakdown?.load_score ?? 0.90)) * 100)}%`}
                         size="small"
                         variant="outlined"
+                      />
+                      <Chip
+                        label={`Fee: $${featuredDoctor.consultation_fee}`}
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                        sx={{ fontWeight: 700 }}
                       />
                     </Box>
                   </Grid>
 
                   <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                    {result.recommendation.slot ? (
+                    {featuredDoctor.earliest_slot ? (
                       <Box sx={{ mb: 2 }}>
                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 700 }}>
                           EARLIEST RECOMMENDED OPENING:
                         </Typography>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.dark' }}>
-                          {result.recommendation.slot.date}
+                          {featuredDoctor.earliest_slot.date}
                         </Typography>
                         <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                          {result.recommendation.slot.start_time} - {result.recommendation.slot.end_time}
+                          {featuredDoctor.earliest_slot.start_time} - {featuredDoctor.earliest_slot.end_time}
                         </Typography>
                       </Box>
                     ) : (
@@ -436,7 +603,7 @@ export default function SymptomConsultationPage() {
                       </Typography>
                     )}
 
-                    {result.booked_appointment ? (
+                    {result.booked_appointment && isTopRecommendation ? (
                       <Button
                         variant="contained"
                         color="success"
@@ -452,7 +619,7 @@ export default function SymptomConsultationPage() {
                         color="primary"
                         size="large"
                         onClick={() => {
-                          handleOpenSchedule(result.recommendation.doctor, result.recommendation.slot);
+                          handleOpenSchedule(featuredDoctor, featuredDoctor.earliest_slot);
                         }}
                         sx={{ fontWeight: 800, px: 3, py: 1.2 }}
                       >
@@ -473,20 +640,27 @@ export default function SymptomConsultationPage() {
                   Choose Your Preferred Specialist
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                  Select any doctor below to view their calendar and choose the day & time you are free.
+                  Click any specialist below to view details in the featured card above or select their open appointment slots.
                 </Typography>
               </Box>
 
               <Grid container spacing={3}>
                 {result.candidate_doctors.map((doc) => {
-                  const isTop = result.recommendation?.doctor?.id === doc.id;
+                  const docId = doc.id ?? doc.doctor?.id;
+                  const isTop = String(result.recommendation?.doctor?.id) === String(docId);
+                  const isSelected = String(featuredDoctor?.id) === String(docId);
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={doc.id}>
+                    <Grid item xs={12} sm={6} md={4} key={docId}>
                       <DoctorCard
                         doctor={doc}
                         isRecommended={isTop}
-                        earliestSlot={isTop ? result.recommendation?.slot : null}
-                        onSelectDoctor={(d) => handleOpenSchedule(d, isTop ? result.recommendation?.slot : null)}
+                        isSelected={isSelected}
+                        earliestSlot={doc.earliest_slot || (isTop ? result.recommendation?.slot : null)}
+                        onCardClick={(d) => handleSelectFeaturedDoctor(d)}
+                        onSelectDoctor={(d) => {
+                          handleSelectFeaturedDoctor(d);
+                          handleOpenSchedule(d, doc.earliest_slot || (isTop ? result.recommendation?.slot : null));
+                        }}
                       />
                     </Grid>
                   );

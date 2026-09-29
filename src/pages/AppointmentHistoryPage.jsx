@@ -28,6 +28,8 @@ import {
   EventRepeat as RescheduleIcon,
   Visibility as ViewNotesIcon,
   FilterList as FilterIcon,
+  PictureAsPdf as PdfIcon,
+  OpenInNew as OpenIcon,
 } from '@mui/icons-material';
 import { patientAPI, doctorAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -343,6 +345,33 @@ export default function AppointmentHistoryPage() {
                     {viewNotes.prescription || 'No medications prescribed.'}
                   </Typography>
                 </Box>
+                {viewNotes.prescription_file_url && (
+                  <Box sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.200', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <PdfIcon color="error" sx={{ fontSize: 32 }} />
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                          Official Doctor's Prescription File
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          Uploaded medical prescription / scanned document
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={<OpenIcon />}
+                      href={viewNotes.prescription_file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      View / Download
+                    </Button>
+                  </Box>
+                )}
                 {viewNotes.clinical_notes && (
                   <Box>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>CLINICAL ADVICE:</Typography>

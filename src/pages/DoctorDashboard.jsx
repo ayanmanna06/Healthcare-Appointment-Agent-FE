@@ -29,13 +29,21 @@ import {
   CalendarToday as CalendarIcon,
   PendingActions as PendingIcon,
   Check as CompletedIcon,
+  CloudUpload as UploadIcon,
+  AttachFile as AttachFileIcon,
+  DeleteOutline as DeleteIcon,
+  OpenInNew as OpenIcon,
+  PictureAsPdf as PdfIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { doctorAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [dashboardData, setDashboardData] = useState({
     today_appointments: [],
@@ -50,9 +58,12 @@ export default function DoctorDashboard() {
   const [noteForm, setNoteForm] = useState({
     diagnosis: '',
     prescription: '',
+    prescription_file_url: '',
+    prescription_filename: '',
     clinical_notes: '',
     follow_up_date: '',
   });
+  const [uploadingPrescription, setUploadingPrescription] = useState(false);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
 
@@ -100,7 +111,14 @@ export default function DoctorDashboard() {
 
   const handleOpenNoteModal = async (appt) => {
     setActiveAppointment(appt);
-    setNoteForm({ diagnosis: '', prescription: '', clinical_notes: '', follow_up_date: '' });
+    setNoteForm({
+      diagnosis: '',
+      prescription: '',
+      prescription_file_url: '',
+      prescription_filename: '',
+      clinical_notes: '',
+      follow_up_date: '',
+    });
     try {
       const res = await doctorAPI.getNotes(appt.id);
       if (res.data.success && res.data.notes) {
@@ -108,6 +126,8 @@ export default function DoctorDashboard() {
         setNoteForm({
           diagnosis: n.diagnosis || '',
           prescription: n.prescription || '',
+          prescription_file_url: n.prescription_file_url || '',
+          prescription_filename: n.prescription_file_url ? n.prescription_file_url.split('/').pop() : '',
           clinical_notes: n.clinical_notes || '',
           follow_up_date: n.follow_up_date || '',
         });
@@ -116,6 +136,26 @@ export default function DoctorDashboard() {
       // No existing notes, keep blank form
     }
     setNoteModalOpen(true);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPrescription(true);
+    try {
+      const res = await doctorAPI.uploadPrescription(file);
+      if (res.data.success) {
+        setNoteForm((prev) => ({
+          ...prev,
+          prescription_file_url: res.data.file_url,
+          prescription_filename: res.data.filename,
+        }));
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to upload prescription file.');
+    } finally {
+      setUploadingPrescription(false);
+    }
   };
 
   const handleSaveNotes = async () => {
@@ -130,13 +170,14 @@ export default function DoctorDashboard() {
         appointment_id: activeAppointment.id,
         diagnosis: noteForm.diagnosis,
         prescription: noteForm.prescription,
+        prescription_file_url: noteForm.prescription_file_url || null,
         clinical_notes: noteForm.clinical_notes,
         follow_up_date: noteForm.follow_up_date || null,
       });
       setNoteModalOpen(false);
-      setActionSuccess('Medical notes and prescription recorded!');
+      setActionSuccess('Medical notes & prescription recorded! Consultation marked as Completed.');
       fetchAppointments();
-      setTimeout(() => setActionSuccess(''), 3000);
+      setTimeout(() => setActionSuccess(''), 4000);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to save notes.');
     } finally {
@@ -148,13 +189,33 @@ export default function DoctorDashboard() {
     <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
       <Sidebar />
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, minHeight: 'calc(100vh - 64px)', bgcolor: 'background.default' }}>
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Doctor Clinical Portal
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            Welcome, Dr. {user?.full_name}. Manage patient requests, consultation logs, and medical records.
-          </Typography>
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800 }}>
+              Doctor Clinical Portal
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              Welcome, Dr. {user?.full_name}. Manage patient requests, consultation logs, and medical records.
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<CalendarIcon />}
+            onClick={() => navigate('/doctor/availability')}
+            sx={{
+              borderRadius: 2,
+              px: 2.5,
+              py: 1.2,
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #10B981, #059669)',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669, #047857)',
+              }
+            }}
+          >
+            Manage Availability (Week & Month)
+          </Button>
         </Box>
 
         {actionSuccess && (
@@ -257,16 +318,27 @@ export default function DoctorDashboard() {
                               {appt.chief_complaint || 'General Consultation'}
                             </TableCell>
                             <TableCell align="right">
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                startIcon={<NoteIcon />}
-                                onClick={() => handleOpenNoteModal(appt)}
-                                sx={{ fontWeight: 600 }}
-                              >
-                                Notes
-                              </Button>
+                              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  startIcon={<NoteIcon />}
+                                  onClick={() => handleOpenNoteModal(appt)}
+                                  sx={{ fontWeight: 600 }}
+                                >
+                                  Notes
+                                </Button>
+                                <Tooltip title="Refer to Another Specialist">
+                                  <IconButton
+                                    size="small"
+                                    color="secondary"
+                                    onClick={() => navigate('/doctors')}
+                                  >
+                                    <SwapHorizIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -358,11 +430,70 @@ export default function DoctorDashboard() {
                 fullWidth
                 multiline
                 rows={3}
-                label="Prescription & Dosages"
+                label="Prescription & Dosages (Text)"
                 placeholder="e.g. Paracetamol 500mg TDS for 3 days, Azithromycin 500mg OD"
                 value={noteForm.prescription}
                 onChange={(e) => setNoteForm({ ...noteForm, prescription: e.target.value })}
               />
+
+              {/* Upload Prescription Document / Scan */}
+              <Box sx={{ p: 2, border: '1px dashed', borderColor: 'primary.main', borderRadius: 2, bgcolor: 'background.default' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AttachFileIcon fontSize="small" color="primary" /> Upload Prescription Document / Scan (PDF or Image)
+                </Typography>
+                
+                {noteForm.prescription_file_url ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'background.paper', p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+                      <PdfIcon color="error" />
+                      <Typography variant="body2" sx={{ fontWeight: 600, noWrap: true }}>
+                        {noteForm.prescription_filename || 'Uploaded Prescription'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<OpenIcon />}
+                        href={noteForm.prescription_file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View
+                      </Button>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setNoteForm(prev => ({ ...prev, prescription_file_url: '', prescription_filename: '' }))}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<UploadIcon />}
+                      disabled={uploadingPrescription}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      {uploadingPrescription ? 'Uploading...' : 'Choose File (PDF, PNG, JPG)'}
+                      <input
+                        type="file"
+                        hidden
+                        accept=".pdf,image/png,image/jpeg,image/webp"
+                        onChange={handleFileUpload}
+                      />
+                    </Button>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Upload handwritten scan, digital PDF, or photo of prescription
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
               <TextField
                 fullWidth
                 multiline
@@ -382,19 +513,33 @@ export default function DoctorDashboard() {
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setNoteModalOpen(false)} color="inherit">
-              Cancel
-            </Button>
+          <DialogActions sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Button
-              variant="contained"
-              color="primary"
-              disabled={noteSubmitting}
-              onClick={handleSaveNotes}
-              sx={{ fontWeight: 700 }}
+              variant="outlined"
+              color="secondary"
+              startIcon={<SwapHorizIcon />}
+              onClick={() => {
+                setNoteModalOpen(false);
+                navigate('/doctors');
+              }}
+              sx={{ fontWeight: 700, textTransform: 'none' }}
             >
-              {noteSubmitting ? 'Saving...' : 'Save & Complete Consultation'}
+              Refer to Another Specialist ➜
             </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={() => setNoteModalOpen(false)} color="inherit">
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={noteSubmitting}
+                onClick={handleSaveNotes}
+                sx={{ fontWeight: 700 }}
+              >
+                {noteSubmitting ? 'Saving...' : 'Save & Complete Consultation'}
+              </Button>
+            </Box>
           </DialogActions>
         </Dialog>
       </Box>
