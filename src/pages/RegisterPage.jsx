@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -25,6 +25,7 @@ import {
   VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { patientAPI } from '../api/client';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function RegisterPage() {
 
   const [role, setRole] = useState('patient');
   const [showPassword, setShowPassword] = useState(false);
+  const [specializations, setSpecializations] = useState([]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -44,9 +46,24 @@ export default function RegisterPage() {
     experience_years: 5,
     consultation_fee: 50.0,
     specialization_id: 1,
+    room_number: 'Consultation Suite 101',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    patientAPI.getSpecializations()
+      .then((res) => {
+        if (res.data?.success && res.data.specializations?.length) {
+          setSpecializations(res.data.specializations);
+          setFormData((prev) => ({
+            ...prev,
+            specialization_id: res.data.specializations[0].id,
+          }));
+        }
+      })
+      .catch((err) => console.error('Failed to load specializations:', err));
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -250,28 +267,33 @@ export default function RegisterPage() {
                   <TextField
                     select
                     fullWidth
-                    label="Specialization"
+                    required
+                    label="Medical Specialization *"
                     name="specialization_id"
                     value={formData.specialization_id}
                     onChange={handleChange}
+                    helperText="Select your primary clinical field"
                   >
-                    <MenuItem value={1}>General Physician</MenuItem>
-                    <MenuItem value={2}>Cardiologist</MenuItem>
-                    <MenuItem value={3}>Neurologist</MenuItem>
-                    <MenuItem value={4}>Orthopedic</MenuItem>
-                    <MenuItem value={5}>Dermatologist</MenuItem>
-                    <MenuItem value={6}>Pediatrician</MenuItem>
-                    <MenuItem value={7}>ENT</MenuItem>
-                    <MenuItem value={8}>Gynecologist</MenuItem>
+                    {specializations.length > 0 ? (
+                      specializations.map((spec) => (
+                        <MenuItem key={spec.id} value={spec.id}>
+                          {spec.name}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value={1}>General Physician</MenuItem>
+                    )}
                   </TextField>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Qualification"
+                    required
+                    label="Medical Qualification & Degrees"
                     name="qualification"
                     value={formData.qualification}
                     onChange={handleChange}
+                    placeholder="e.g. MBBS, MD (Cardiology), MRCP"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -292,6 +314,16 @@ export default function RegisterPage() {
                     name="consultation_fee"
                     value={formData.consultation_fee}
                     onChange={handleChange}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Clinic Room / Suite Number"
+                    name="room_number"
+                    value={formData.room_number}
+                    onChange={handleChange}
+                    placeholder="e.g. Suite 304, North Wing"
                   />
                 </Grid>
               </>

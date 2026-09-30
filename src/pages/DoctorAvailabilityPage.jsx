@@ -466,7 +466,7 @@ export default function DoctorAvailabilityPage() {
                   Standard Mon - Fri (9 AM - 5 PM)
                 </Button>
                 <Button size="small" variant="outlined" onClick={() => applyWeeklyTemplate('six_days')} sx={{ fontWeight: 700 }}>
-                  Hospital 6-Day Clinic (Mon - Sat)
+                  Specialist Care Clinic (Mon - Sat)
                 </Button>
               </Box>
             </Paper>

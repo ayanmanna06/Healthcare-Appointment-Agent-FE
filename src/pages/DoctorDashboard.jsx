@@ -21,6 +21,8 @@ import {
   Alert,
   IconButton,
   Tooltip,
+  Avatar,
+  Divider,
 } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
@@ -35,6 +37,10 @@ import {
   OpenInNew as OpenIcon,
   PictureAsPdf as PdfIcon,
   SwapHoriz as SwapHorizIcon,
+  MedicalServices as StethoscopeIcon,
+  MeetingRoom as RoomIcon,
+  AttachMoney as FeeIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { doctorAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -223,6 +229,83 @@ export default function DoctorDashboard() {
             {actionSuccess}
           </Alert>
         )}
+
+        {/* Clinical Identity & Specialization Banner */}
+        <Paper
+          sx={{
+            p: 2.5,
+            mb: 3,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(30, 41, 59, 0.4) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar
+              sx={{
+                width: 52,
+                height: 52,
+                bgcolor: 'secondary.main',
+                fontWeight: 800,
+                fontSize: '1.2rem',
+                boxShadow: '0 4px 12px rgba(20, 184, 166, 0.3)',
+              }}
+            >
+              {user?.full_name ? user.full_name[0] : 'D'}
+            </Avatar>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  Dr. {user?.full_name}
+                </Typography>
+                <Chip
+                  icon={<StethoscopeIcon fontSize="small" />}
+                  label={`Specialization: ${user?.doctor?.specialization_name || 'General Specialist'}`}
+                  color="secondary"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    letterSpacing: 0.3,
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mt: 0.5 }}>
+                {user?.doctor?.qualification && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    🎓 {user.doctor.qualification}
+                  </Typography>
+                )}
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                  🚪 Room: <strong>{user?.doctor?.room_number || 'Room 201'}</strong>
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 700 }}>
+                  💵 Fee: ${user?.doctor?.consultation_fee || 50}
+                </Typography>
+                {user?.doctor?.experience_years && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    ⏳ {user.doctor.experience_years} Years Exp.
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Box>
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<EditIcon />}
+            onClick={() => navigate('/profile')}
+            sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+          >
+            Edit Clinical Profile
+          </Button>
+        </Paper>
 
         {/* Metric Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>

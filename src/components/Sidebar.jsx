@@ -40,8 +40,8 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
       return [
         { label: 'Admin Analytics', path: '/admin', icon: <AnalyticsIcon /> },
         { label: 'Manage Doctors', path: '/doctors', icon: <StethoscopeIcon /> },
+        { label: 'Manage Patients', path: '/admin/patients', icon: <PeopleIcon /> },
         { label: 'All Appointments', path: '/history', icon: <CalendarIcon /> },
-        { label: 'AI Agent Consultation', path: '/consult', icon: <AgentIcon /> },
         { label: 'System Settings', path: '/profile', icon: <SettingsIcon /> },
       ];
     }
@@ -69,10 +69,25 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
   const isItemActive = (item) => {
     const current = location.pathname;
     if (current === item.path) return true;
-    // When doctor is on referral page, highlight Doctor Directory
-    if (item.path === '/doctors' && (current === '/doctors' || current.startsWith('/doctor/refer'))) {
-      return true;
+
+    // When managing doctors or viewing doctor history/referrals, highlight Manage Doctors
+    if (item.path === '/doctors') {
+      if (
+        current === '/doctors' ||
+        current.startsWith('/admin/doctors') ||
+        current.startsWith('/doctor/refer')
+      ) {
+        return true;
+      }
     }
+
+    // When managing patients or viewing patient history, highlight Manage Patients
+    if (item.path === '/admin/patients') {
+      if (current.startsWith('/admin/patients')) {
+        return true;
+      }
+    }
+
     // When on doctor availability
     if (item.path === '/doctor/availability' && current.startsWith('/doctor/availability')) {
       return true;
@@ -81,9 +96,12 @@ export default function Sidebar({ mobileOpen, handleDrawerToggle }) {
     if (item.path === '/history' && current.startsWith('/history')) {
       return true;
     }
-    // When on admin
-    if (item.path === '/admin' && current.startsWith('/admin')) {
-      return true;
+    // When on admin dashboard
+    if (item.path === '/admin') {
+      if (current.startsWith('/admin/doctors') || current.startsWith('/admin/patients')) {
+        return false;
+      }
+      return current === '/admin' || current.startsWith('/admin/dashboard') || current.startsWith('/admin/analytics');
     }
     return false;
   };

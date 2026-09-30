@@ -15,6 +15,9 @@ import DoctorReferralPage from './pages/DoctorReferralPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AppointmentHistoryPage from './pages/AppointmentHistoryPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import DoctorPatientHistoryPage from './pages/DoctorPatientHistoryPage';
+import PatientListPage from './pages/PatientListPage';
+import PatientHistoryPage from './pages/PatientHistoryPage';
 
 export default function App() {
   return (
@@ -50,6 +53,10 @@ export default function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/doctors/:doctorId/history" element={<DoctorPatientHistoryPage />} />
+              <Route path="/admin/doctors/:doctorId/patients" element={<DoctorPatientHistoryPage />} />
+              <Route path="/admin/patients" element={<PatientListPage />} />
+              <Route path="/admin/patients/:patientId/history" element={<PatientHistoryPage />} />
             </Route>
 
             {/* Catch-all redirect */}

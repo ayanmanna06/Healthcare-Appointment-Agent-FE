@@ -85,9 +85,21 @@ export const doctorAPI = {
 export const adminAPI = {
   getAnalytics: () => api.get('/admin/analytics'),
   getDoctors: () => api.get('/admin/doctors'),
+  getDoctorPatientHistory: (doctorId) => api.get(`/admin/doctors/${doctorId}/history`),
+  createDoctor: (data) => api.post('/admin/doctors', data),
+  updateDoctor: (id, data) => api.put(`/admin/doctors/${id}`, data),
+  toggleDoctorStatus: (id) => api.put(`/admin/doctors/${id}/status`),
+  deleteDoctor: (id) => api.delete(`/admin/doctors/${id}`),
   getPatients: () => api.get('/admin/patients'),
+  getPatientHistory: (patientId) => api.get(`/admin/patients/${patientId}/history`),
+  createPatient: (data) => api.post('/admin/patients', data),
+  updatePatient: (id, data) => api.put(`/admin/patients/${id}`, data),
+  togglePatientStatus: (id) => api.put(`/admin/patients/${id}/status`),
+  deletePatient: (id) => api.delete(`/admin/patients/${id}`),
   getAppointments: () => api.get('/admin/appointments'),
   getDecisions: () => api.get('/admin/decisions'),
+  getSettings: () => api.get('/admin/settings'),
+  updateSettings: (data) => api.put('/admin/settings', data),
 };
 
 export default api;

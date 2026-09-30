@@ -83,6 +83,7 @@ export default function SymptomConsultationPage() {
     setLoading(true);
     setResult(null);
     setFeaturedDoctorId(null);
+    setBookingSuccess(null);
 
     try {
       const res = await patientAPI.consultSymptoms({
@@ -92,6 +93,13 @@ export default function SymptomConsultationPage() {
 
       if (res.data.success) {
         setResult(res.data);
+        if (res.data.booked_appointment) {
+          setBookingSuccess({
+            appointment: res.data.booked_appointment,
+            doctor: res.data.recommendation?.doctor,
+            slot: res.data.recommendation?.slot,
+          });
+        }
       } else {
         setError(res.data.error || 'Failed to complete symptom analysis.');
       }
@@ -366,7 +374,7 @@ export default function SymptomConsultationPage() {
       )}
 
       {/* Booking Success Banner */}
-      {bookingSuccess && (
+      {(bookingSuccess || result?.booked_appointment) && (
         <Alert
           severity="success"
           sx={{ my: 3, borderRadius: 3, p: 2.5, boxShadow: '0 4px 20px rgba(16, 185, 129, 0.2)' }}
@@ -386,11 +394,12 @@ export default function SymptomConsultationPage() {
             🎉 Appointment Successfully Confirmed!
           </Typography>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            Appointment #{bookingSuccess.appointment?.id} with <strong>{bookingSuccess.doctor?.full_name}</strong> on{' '}
+            Appointment #{(bookingSuccess?.appointment?.id || result?.booked_appointment?.id)} with{' '}
+            <strong>{(bookingSuccess?.doctor?.full_name || result?.recommendation?.doctor?.full_name)}</strong> on{' '}
             <strong>
-              {bookingSuccess.slot?.day_name}, {bookingSuccess.slot?.date} ({bookingSuccess.slot?.start_time} - {bookingSuccess.slot?.end_time})
+              {(bookingSuccess?.slot?.day_name || result?.recommendation?.slot?.day_name)}, {(bookingSuccess?.slot?.date || result?.recommendation?.slot?.date)} ({(bookingSuccess?.slot?.start_time || result?.recommendation?.slot?.start_time)} - {(bookingSuccess?.slot?.end_time || result?.recommendation?.slot?.end_time)})
             </strong>{' '}
-            in Room {bookingSuccess.doctor?.room_number || '301'}. A confirmation email has been dispatched.
+            in Room {(bookingSuccess?.doctor?.room_number || result?.recommendation?.doctor?.room_number || 'Room 301')}. A confirmation email has been dispatched.
           </Typography>
         </Alert>
       )}
@@ -546,7 +555,7 @@ export default function SymptomConsultationPage() {
                       {featuredDoctor.full_name}
                     </Typography>
                     <Typography variant="subtitle1" sx={{ color: 'secondary.main', fontWeight: 700, mb: 1 }}>
-                      {featuredDoctor.specialization_name} &bull; {featuredDoctor.qualification}
+                      Specialization: {featuredDoctor.specialization_name || 'Specialist'} &bull; {featuredDoctor.qualification}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                       {featuredDoctor.decision_reason || featuredDoctor.bio}
