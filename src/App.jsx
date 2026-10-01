@@ -10,16 +10,21 @@ import SymptomConsultationPage from './pages/SymptomConsultationPage';
 import DoctorListPage from './pages/DoctorListPage';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
+import DoctorAvailabilityPage from './pages/DoctorAvailabilityPage';
+import DoctorReferralPage from './pages/DoctorReferralPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AppointmentHistoryPage from './pages/AppointmentHistoryPage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
+import DoctorPatientHistoryPage from './pages/DoctorPatientHistoryPage';
+import PatientListPage from './pages/PatientListPage';
+import PatientHistoryPage from './pages/PatientHistoryPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default', color: 'text.primary' }}>
         <Navbar />
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ pt: '64px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<LandingPage />} />
@@ -41,11 +46,17 @@ export default function App() {
 
             <Route element={<ProtectedRoute allowedRoles={['doctor', 'admin']} />}>
               <Route path="/doctor" element={<DoctorDashboard />} />
-              <Route path="/doctor/availability" element={<DoctorDashboard />} />
+              <Route path="/doctor/availability" element={<DoctorAvailabilityPage />} />
+              <Route path="/doctor/refer-patient" element={<DoctorReferralPage />} />
+              <Route path="/doctor/refer/:doctorId" element={<DoctorReferralPage />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/doctors/:doctorId/history" element={<DoctorPatientHistoryPage />} />
+              <Route path="/admin/doctors/:doctorId/patients" element={<DoctorPatientHistoryPage />} />
+              <Route path="/admin/patients" element={<PatientListPage />} />
+              <Route path="/admin/patients/:patientId/history" element={<PatientHistoryPage />} />
             </Route>
 
             {/* Catch-all redirect */}

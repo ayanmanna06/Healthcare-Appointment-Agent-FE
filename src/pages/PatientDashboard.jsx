@@ -82,9 +82,9 @@ export default function PatientDashboard() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
       <Sidebar />
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, minHeight: 'calc(100vh - 64px)', bgcolor: 'background.default' }}>
         {/* Welcome Header */}
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
           <Box>

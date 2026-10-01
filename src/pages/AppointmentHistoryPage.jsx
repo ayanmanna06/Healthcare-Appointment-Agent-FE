@@ -28,8 +28,11 @@ import {
   EventRepeat as RescheduleIcon,
   Visibility as ViewNotesIcon,
   FilterList as FilterIcon,
+  PictureAsPdf as PdfIcon,
+  OpenInNew as OpenIcon,
+  CheckCircle as ApproveIcon,
 } from '@mui/icons-material';
-import { patientAPI, doctorAPI } from '../api/client';
+import { patientAPI, doctorAPI, adminAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 
@@ -57,13 +60,16 @@ export default function AppointmentHistoryPage() {
 
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [role]);
 
   const fetchAppointments = async () => {
     setLoading(true);
     try {
       let res;
-      if (role === 'doctor') {
+      if (role === 'admin') {
+        res = await adminAPI.getAppointments();
+        if (res.data.success) setAppointments(res.data.appointments || []);
+      } else if (role === 'doctor') {
         res = await doctorAPI.getAppointments();
         if (res.data.success) setAppointments(res.data.all_appointments || []);
       } else {
@@ -111,6 +117,28 @@ export default function AppointmentHistoryPage() {
     }
   };
 
+  const handleApprove = async (apptId) => {
+    try {
+      await doctorAPI.approveAppointment(apptId);
+      setMessage({ text: 'Appointment approved successfully.', type: 'success' });
+      fetchAppointments();
+    } catch (err) {
+      setMessage({ text: err.response?.data?.error || 'Failed to approve appointment.', type: 'error' });
+    }
+  };
+
+  const handleReject = async (apptId) => {
+    const reason = prompt('Please enter reason for rejection:', 'Schedule conflict / Doctor unavailable');
+    if (!reason) return;
+    try {
+      await doctorAPI.rejectAppointment(apptId, reason);
+      setMessage({ text: 'Appointment rejected.', type: 'success' });
+      fetchAppointments();
+    } catch (err) {
+      setMessage({ text: err.response?.data?.error || 'Failed to reject appointment.', type: 'error' });
+    }
+  };
+
   const handleOpenNotes = async (appt) => {
     try {
       const res = await doctorAPI.getNotes(appt.id);
@@ -129,16 +157,18 @@ export default function AppointmentHistoryPage() {
   });
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
       <Sidebar />
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, minHeight: 'calc(100vh - 64px)', bgcolor: 'background.default' }}>
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Appointment Records & Scheduling History
+              {role === 'admin' ? 'Practice-Wide Appointments & Master Schedule' : 'Appointment Records & Scheduling History'}
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-              Track past and upcoming clinical consultations, download notes, or reschedule openings.
+              {role === 'admin'
+                ? 'Master administrative log of all booked consultations across all network physicians, patients, and AI agents.'
+                : 'Track past and upcoming clinical consultations, download notes, or reschedule openings.'}
             </Typography>
           </Box>
           <TextField
@@ -176,7 +206,14 @@ export default function AppointmentHistoryPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>ID</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{role === 'doctor' ? 'Patient' : 'Doctor'}</TableCell>
+                    {role === 'admin' ? (
+                      <>
+                        <TableCell sx={{ fontWeight: 700 }}>Patient</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Doctor</TableCell>
+                      </>
+                    ) : (
+                      <TableCell sx={{ fontWeight: 700 }}>{role === 'doctor' ? 'Patient' : 'Doctor'}</TableCell>
+                    )}
                     <TableCell sx={{ fontWeight: 700 }}>Specialization</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Date & Time</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
@@ -188,14 +225,35 @@ export default function AppointmentHistoryPage() {
                   {filtered.map((appt) => (
                     <TableRow key={appt.id} hover>
                       <TableCell sx={{ fontWeight: 700 }}>#A{appt.id}</TableCell>
-                      <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {role === 'doctor' ? appt.patient_name : `Dr. ${appt.doctor_name}`}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {appt.chief_complaint || 'General Checkup'}
-                        </Typography>
-                      </TableCell>
+                      {role === 'admin' ? (
+                        <>
+                          <TableCell>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {appt.patient_name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {appt.patient_phone || appt.patient_email || 'Patient'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              Dr. {appt.doctor_name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {appt.chief_complaint || 'Consultation'}
+                            </Typography>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <TableCell>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {role === 'doctor' ? appt.patient_name : `Dr. ${appt.doctor_name}`}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {appt.chief_complaint || 'General Checkup'}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell>{appt.specialization || 'Clinical Care'}</TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{appt.appointment_date}</Typography>
@@ -213,19 +271,22 @@ export default function AppointmentHistoryPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={appt.status.toUpperCase()}
-                          size="small"
-                          color={
-                            appt.status === 'confirmed' ? 'success' :
-                            appt.status === 'completed' ? 'primary' :
-                            appt.status === 'cancelled' ? 'error' : 'warning'
-                          }
-                          sx={{ fontWeight: 700, fontSize: '0.68rem' }}
-                        />
+                        <Tooltip title={appt.cancellation_reason ? `Cancellation Reason: ${appt.cancellation_reason}` : `Status: ${appt.status}`}>
+                          <Chip
+                            label={appt.status.toUpperCase()}
+                            size="small"
+                            color={
+                              appt.status === 'confirmed' ? 'success' :
+                              appt.status === 'completed' ? 'primary' :
+                              appt.status === 'cancelled' ? 'error' : 'warning'
+                            }
+                            sx={{ fontWeight: 700, fontSize: '0.68rem', cursor: appt.cancellation_reason ? 'help' : 'default' }}
+                          />
+                        </Tooltip>
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          {/* Completed: View Notes */}
                           {appt.status === 'completed' && (
                             <Tooltip title="View Clinical Notes">
                               <IconButton size="small" color="primary" onClick={() => handleOpenNotes(appt)}>
@@ -234,6 +295,40 @@ export default function AppointmentHistoryPage() {
                             </Tooltip>
                           )}
 
+                          {/* Pending: Doctor / Admin can Approve or Reject */}
+                          {appt.status === 'pending' && (
+                            <>
+                              {(role === 'doctor' || role === 'admin') && (
+                                <Tooltip title="Approve Appointment">
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={() => handleApprove(appt.id)}
+                                  >
+                                    <ApproveIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              <Tooltip title={role === 'doctor' || role === 'admin' ? 'Reject Request' : 'Cancel Request'}>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    if (role === 'doctor' || role === 'admin') {
+                                      handleReject(appt.id);
+                                    } else {
+                                      setTargetAppt(appt);
+                                      setCancelModalOpen(true);
+                                    }
+                                  }}
+                                >
+                                  <CancelIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+
+                          {/* Confirmed: Reschedule or Cancel */}
                           {appt.status === 'confirmed' && (
                             <>
                               <Tooltip title="Reschedule">
@@ -343,6 +438,33 @@ export default function AppointmentHistoryPage() {
                     {viewNotes.prescription || 'No medications prescribed.'}
                   </Typography>
                 </Box>
+                {viewNotes.prescription_file_url && (
+                  <Box sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.200', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <PdfIcon color="error" sx={{ fontSize: 32 }} />
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                          Official Doctor's Prescription File
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          Uploaded medical prescription / scanned document
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={<OpenIcon />}
+                      href={viewNotes.prescription_file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      View / Download
+                    </Button>
+                  </Box>
+                )}
                 {viewNotes.clinical_notes && (
                   <Box>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>CLINICAL ADVICE:</Typography>

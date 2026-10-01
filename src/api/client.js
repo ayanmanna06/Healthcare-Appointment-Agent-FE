@@ -59,20 +59,47 @@ export const patientAPI = {
 
 export const doctorAPI = {
   getAvailability: () => api.get('/doctor/availability'),
-  setAvailability: (slots, overwrite = false) => api.post('/doctor/availability', slots, { params: { overwrite } }),
+  setAvailability: (data, overwrite = true) => api.post('/doctor/availability', data, { params: { overwrite } }),
+  getMonthSchedule: (year, month) => api.get('/doctor/month-schedule', { params: { year, month } }),
+  setDateOverride: (overrideData) => api.post('/doctor/date-override', overrideData),
+  deleteDateOverride: (params) => api.delete('/doctor/date-override', { params }),
   getAppointments: (status) => api.get('/doctor/appointments', { params: { status } }),
   approveAppointment: (appointmentId) => api.post('/doctor/appointment/approve', { appointment_id: appointmentId }),
   rejectAppointment: (appointmentId, reason) => api.post('/doctor/appointment/reject', { appointment_id: appointmentId, reason }),
   addNotes: (noteData) => api.post('/doctor/appointment/notes', noteData),
   getNotes: (appointmentId) => api.get(`/doctor/appointment/${appointmentId}/notes`),
+  uploadPrescription: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/doctor/upload-prescription', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getMyPatients: () => api.get('/doctor/my-patients'),
+  sendReferral: (data) => api.post('/doctor/referrals', data),
+  getSentReferrals: () => api.get('/doctor/referrals/sent'),
+  getReceivedReferrals: () => api.get('/doctor/referrals/received'),
+  updateReferralStatus: (id, status) => api.put(`/doctor/referrals/${id}/status`, { status }),
 };
 
 export const adminAPI = {
   getAnalytics: () => api.get('/admin/analytics'),
   getDoctors: () => api.get('/admin/doctors'),
+  getDoctorPatientHistory: (doctorId) => api.get(`/admin/doctors/${doctorId}/history`),
+  createDoctor: (data) => api.post('/admin/doctors', data),
+  updateDoctor: (id, data) => api.put(`/admin/doctors/${id}`, data),
+  toggleDoctorStatus: (id) => api.put(`/admin/doctors/${id}/status`),
+  deleteDoctor: (id) => api.delete(`/admin/doctors/${id}`),
   getPatients: () => api.get('/admin/patients'),
+  getPatientHistory: (patientId) => api.get(`/admin/patients/${patientId}/history`),
+  createPatient: (data) => api.post('/admin/patients', data),
+  updatePatient: (id, data) => api.put(`/admin/patients/${id}`, data),
+  togglePatientStatus: (id) => api.put(`/admin/patients/${id}/status`),
+  deletePatient: (id) => api.delete(`/admin/patients/${id}`),
   getAppointments: () => api.get('/admin/appointments'),
   getDecisions: () => api.get('/admin/decisions'),
+  getSettings: () => api.get('/admin/settings'),
+  updateSettings: (data) => api.put('/admin/settings', data),
 };
 
 export default api;
